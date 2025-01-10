@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@link.lanyun.net:26234 password" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="lab419@10.1.124.19:22 password">
         <serverdata>
@@ -118,6 +118,13 @@
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="root@link.lanyun.net:26234 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_855" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

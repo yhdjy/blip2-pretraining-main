@@ -19,8 +19,8 @@ class oxford_pets_config:
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
     batch_size: int = 4
     max_txt_len: int = 32
-    epochs: int = 30
-    lr: float = 0.002
+    epochs: int = 50
+    lr: float = 0.0005
     train_data_path: str = "DATA/oxford_pets/split_zhou_OxfordPets.json"
     images_path: str = "DATA/oxford_pets/images"
     save_model_path: str = "output/model"  # 保存blip2模型地址

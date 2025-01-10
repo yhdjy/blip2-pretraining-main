@@ -53,18 +53,18 @@ class TrainBlip2:
         # 解冻适配器的参数
         for name, param in self.blip2model.named_parameters():
             print(name)
-            if 'adapter' in name:# or 'encoder.layer.11' in name:  # 假设适配器的参数名称中包含 'adapter'
+            if 'adapter' in name or 'cross_attn' in name or 'batch_norm' in name:# or 'encoder.layer.11' in name:  # 假设适配器的参数名称中包含 'adapter'
                 param.requires_grad = True
         self.processor = BlipImageProcessor(**image_processor_config)  # 加载图像预处理
 
-        # 定义LoRA配置
-        lora_config = LoraConfig(
-            r=8,  # 低秩矩阵的秩
-            lora_alpha=16,  # LoRA的缩放因子
-            target_modules=["layer.11.attention.self.query","layer.11.attention.self.key", ]  # 需要应用LoRA的模块
-        )
-        # 将LoRA配置应用到模型
-        self.blip2model = get_peft_model(self.blip2model, lora_config)
+        # # 定义LoRA配置
+        # lora_config = LoraConfig(
+        #     r=8,  # 低秩矩阵的秩
+        #     lora_alpha=16,  # LoRA的缩放因子
+        #     target_modules=["layer.11.attention.self.query","layer.11.attention.self.key", ]  # 需要应用LoRA的模块
+        # )
+        # # 将LoRA配置应用到模型
+        # self.blip2model = get_peft_model(self.blip2model, lora_config)
         dataset = CustomDataset(self.config, self.processor, self.blip2model.tokenizer)  # 读取数据
 
         #self.attr = self.blip2model.get_attr(classnames=classname)
@@ -81,13 +81,16 @@ class TrainBlip2:
                 self.blip2model.zero_grad()
                 loss.loss.backward()
                 self.model_opt.step()
-                print(loss)
+                if (i + 1) % 10 == 0:
+                    print(loss)
                 if (i + 1) % 30 == 0:  # 每 10 个 batch 打印一次
                     print(f"  Batch [{i + 1}/{len(self.dataloader)}]: Loss = {loss.loss.item():.4f}")
                 # self.save_model()
+            print(f"epoch:{epochs}")
             self.evaluate()
+
             # 是否保存模型
-            #self.save_model()
+            self.save_model()
 
     def save_model(self):
         blip2_pretrained = self.blip2model.state_dict()

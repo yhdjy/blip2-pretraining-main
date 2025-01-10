@@ -61,11 +61,14 @@ class Blip2Qformer(nn.Module):
         self.max_txt_len = max_txt_len
         self.load_model_weights(visual_encoder_model_path, qformer_model_path)
 
+        self.cross_attn = nn.MultiheadAttention(embed_dim=256, num_heads=8)
+
         self.adapter = SelfAttnAdapter(embed_dim, 4, ratio=0.5).to(self.config.device)
         #self.adapter = OfficialSelfAttentionLayer(embed_dim, 4)
         # todo 获取标签描述文本嵌入
         self.classname = classname
         #self.attr = self.get_attr(classname)
+        self.batch_norm = nn.BatchNorm1d(256)
 
     def init_vision_encoder(self, img_size, drop_path_rate):
         # 此处加载的是eva_clip_g模型， 加载需要改一下
@@ -236,6 +239,11 @@ class Blip2Qformer(nn.Module):
         )
         return image_feats,text_feat
 
+    def min_max_normalize(self, tensor):
+        min_val = tensor.min(dim=1, keepdim=True)[0]  # 按行计算最小值
+        max_val = tensor.max(dim=1, keepdim=True)[0]  # 按行计算最大值
+        normalized_tensor = (tensor - min_val) / (max_val - min_val)
+        return normalized_tensor
 
     def forward(self, image, text_tokens):
         attr=self.get_attr2(self.classname)
@@ -271,6 +279,26 @@ class Blip2Qformer(nn.Module):
         # text_feat = F.normalize(
         #     self.text_proj(text_output.last_hidden_state[:, 0, :]), dim=-1
         # )
+        batch_size = image_feats.size(0)
+        key_value_tensor = image_feats.permute(1, 0, 2)
+        query_tensor = attr.unsqueeze(0).expand(batch_size, -1, -1, -1)
+        query_tensor_flat = query_tensor.reshape(batch_size,-1, 256)
+
+        attn_output, attn_weights = self.cross_attn(
+            query_tensor_flat.permute(1, 0, 2),  # (256, 8 * 19 * 7)
+            key_value_tensor,  # (32, 8, 256)
+            key_value_tensor  # (32, 8, 256)
+        )
+        attn_output = attn_output.permute(1, 0, 2).view(batch_size, 19, 7, 256)
+        #reshaped_tensor = attn_output.reshape(-1, 256)
+        attn_outputs = torch.rand(batch_size,19, 7, 256).to(image_feats.device)
+        for i in range(attn_output.size(0)):
+            attn_outputs[i] = self.adapter(attn_output[i])
+        #img_feats = self.adapter(reshaped_tensor)
+        #img_feat = img_feats.view(batch_size, 19, 7, 256)
+        img_feat = attn_outputs.mean(dim=2)
+        # img_feat = self.batch_norm(img_feat.reshape(-1, 256))
+        # img_feat = img_feat.view(batch_size, 19, 256)
 
         #todo 将同一类的不同描述融合 [19,7,256]->[19,256]
         #attr=torch.rand(19,7,256).to(image_feats.device)
@@ -279,30 +307,42 @@ class Blip2Qformer(nn.Module):
         text_feat = text_features.mean(dim=1)  # [19,512]
         # 下面的loss 计算可以看博客https://zhuanlan.zhihu.com/p/16034558568
         ###============== Image-text Contrastive ===================###
-        image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
-        text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
+        # image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
+        # text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
+        #
+        # sim_q2t = torch.matmul(
+        #     image_feats.unsqueeze(1), text_feat_all.unsqueeze(-1)
+        # ).squeeze()
+        # # [batch_size, batch_size*num_gpu, num_query_tokens]
+        #
+        # # image-text similarity: aggregate across all query tokens
+        # sim_i2t, _ = sim_q2t.max(-1)
+        # sim_i2t = sim_i2t / self.temp
 
-        sim_q2t = torch.matmul(
-            image_feats.unsqueeze(1), text_feat_all.unsqueeze(-1)
-        ).squeeze()
-        # [batch_size, batch_size*num_gpu, num_query_tokens]
+        # 初始化相似度结果张量
+        similarity_results = torch.zeros(batch_size, 19).to(image_feats.device)  # 形状 (8, 19)
 
-        # image-text similarity: aggregate across all query tokens
-        sim_i2t, _ = sim_q2t.max(-1)
-        sim_i2t = sim_i2t / self.temp
+        # 计算相似度
+        for i in range(batch_size):  # 循环 8 次
+            # 对 tensor_a 的每个 19 维度的向量与 tensor_b 进行点积
+            for j in range(19):  # 循环 19 次
+                # 计算相似度 (点积)
+                similarity_results[i, j] = torch.dot(img_feat[i, j], text_feat[j]) /16
+        #similarity_results2 = self.min_max_normalize(similarity_results)
+        sim_i2t = similarity_results / self.temp
 
         # text-query similarity: [batch_size, batch_size*num_gpu, num_query_tokens]
-        sim_t2q = torch.matmul(
-            text_feat.unsqueeze(1).unsqueeze(1), image_feats_all.permute(0, 2, 1)
-        ).squeeze()
-
-        # text-image similarity: aggregate across all query tokens
-        sim_t2i, _ = sim_t2q.max(-1)
-        sim_t2i = sim_t2i / self.temp  # [batch_size, batch_size*num_gpu]
-
-        # rank = dist.get_rank()
-        rank = 0
-        bs = image.size(0)
+        # sim_t2q = torch.matmul(
+        #     text_feat.unsqueeze(1).unsqueeze(1), image_feats_all.permute(0, 2, 1)
+        # ).squeeze()
+        #
+        # # text-image similarity: aggregate across all query tokens
+        # sim_t2i, _ = sim_t2q.max(-1)
+        # sim_t2i = sim_t2i / self.temp  # [batch_size, batch_size*num_gpu]
+        #
+        # # rank = dist.get_rank()
+        # rank = 0
+        # bs = image.size(0)
         # targets = torch.linspace(rank * bs, rank * bs + bs - 1, bs, dtype=torch.long).to(
         #     image.device
         # )
@@ -446,7 +486,26 @@ class Blip2Qformer(nn.Module):
         # text_feat = F.normalize(
         #     self.text_proj(text_output.last_hidden_state[:, 0, :]), dim=-1
         # )
+        batch_size = image_feats.size(0)
+        key_value_tensor = image_feats.permute(1, 0, 2)
+        query_tensor = attr.unsqueeze(0).expand(batch_size, -1, -1, -1)
+        query_tensor_flat = query_tensor.reshape(batch_size, -1, 256)
 
+        attn_output, attn_weights = self.cross_attn(
+            query_tensor_flat.permute(1, 0, 2),  # (256, 8 * 19 * 7)
+            key_value_tensor,  # (32, 8, 256)
+            key_value_tensor  # (32, 8, 256)
+        )
+        attn_output = attn_output.permute(1, 0, 2).view(batch_size, 19, 7, 256)
+        # reshaped_tensor = attn_output.reshape(-1, 256)
+        attn_outputs = torch.rand(batch_size, 19, 7, 256).to(image_feats.device)
+        for i in range(attn_output.size(0)):
+            attn_outputs[i] = self.adapter(attn_output[i])
+        # img_feats = self.adapter(reshaped_tensor)
+        # img_feat = img_feats.view(batch_size, 19, 7, 256)
+        img_feat = attn_outputs.mean(dim=2)
+        # img_feat = self.batch_norm(img_feat.reshape(-1,256))
+        # img_feat = img_feat.view(batch_size,19,256)
         # todo 将同一类的不同描述融合 [19,7,256]->[19,256]
         # attr=torch.rand(19,7,256).to(image_feats.device)
         # attr = attr.to(image_feats.device)
@@ -454,33 +513,29 @@ class Blip2Qformer(nn.Module):
         text_feat = text_features.mean(dim=1)  # [19,512]
         # 下面的loss 计算可以看博客https://zhuanlan.zhihu.com/p/16034558568
         ###============== Image-text Contrastive ===================###
-        image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
-        text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
+        # image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
+        # text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
+        #
+        # sim_q2t = torch.matmul(
+        #     image_feats.unsqueeze(1), text_feat_all.unsqueeze(-1)
+        # ).squeeze()
+        # # [batch_size, batch_size*num_gpu, num_query_tokens]
+        #
+        # # image-text similarity: aggregate across all query tokens
+        # sim_i2t, _ = sim_q2t.max(-1)
+        # sim_i2t = sim_i2t / self.temp
 
-        sim_q2t = torch.matmul(
-            image_feats.unsqueeze(1), text_feat_all.unsqueeze(-1)
-        ).squeeze()
-        # [batch_size, batch_size*num_gpu, num_query_tokens]
+        # 初始化相似度结果张量
+        similarity_results = torch.zeros(batch_size, 19).to(image_feats.device)  # 形状 (8, 19)
 
-        # image-text similarity: aggregate across all query tokens
-        sim_i2t, _ = sim_q2t.max(-1)
-        sim_i2t = sim_i2t / self.temp
-
-        # text-query similarity: [batch_size, batch_size*num_gpu, num_query_tokens]
-        sim_t2q = torch.matmul(
-            text_feat.unsqueeze(1).unsqueeze(1), image_feats_all.permute(0, 2, 1)
-        ).squeeze()
-
-        # text-image similarity: aggregate across all query tokens
-        sim_t2i, _ = sim_t2q.max(-1)
-        sim_t2i = sim_t2i / self.temp  # [batch_size, batch_size*num_gpu]
-
-        # rank = dist.get_rank()
-        rank = 0
-        bs = image.size(0)
-        # targets = torch.linspace(rank * bs, rank * bs + bs - 1, bs, dtype=torch.long).to(
-        #     image.device
-        # )
+        # 计算相似度
+        for i in range(batch_size):  # 循环 8 次
+            # 对 tensor_a 的每个 19 维度的向量与 tensor_b 进行点积
+            for j in range(19):  # 循环 19 次
+                # 计算相似度 (点积)
+                similarity_results[i, j] = torch.dot(img_feat[i, j], text_feat[j]) / 8
+        # similarity_results2 = self.min_max_normalize(similarity_results)
+        sim_i2t = similarity_results / self.temp
         targets = text_tokens
         # todo 暂时只计算图像到文本的损失
         # loss_itc = (F.cross_entropy(sim_i2t, targets, label_smoothing=0.1) + F.cross_entropy(sim_t2i, targets,
