@@ -9,7 +9,7 @@ import torch
 from PIL import Image
 import torch.nn.functional as F
 from config import oxford_pets_config
-from peft import get_peft_model, LoraConfig
+#from peft import get_peft_model, LoraConfig
 class TrainBlip2:
     def __init__(self):
         blip2_qformer_config = Blip2QformerConfig().__dict__
