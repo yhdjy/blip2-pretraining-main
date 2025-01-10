@@ -69,6 +69,9 @@ class Blip2Qformer(nn.Module):
         self.classname = classname
         #self.attr = self.get_attr(classname)
         self.batch_norm = nn.BatchNorm1d(256)
+        self.class_num = self.config.class_num
+        self.caption_num = self.config.caption_num
+
 
     def init_vision_encoder(self, img_size, drop_path_rate):
         # 此处加载的是eva_clip_g模型， 加载需要改一下
@@ -165,7 +168,7 @@ class Blip2Qformer(nn.Module):
     #     return final_text_feats
 
     def get_attr2(self, classnames):
-        gpt4_sentences = torch.load(f'./gpt4_data/oxford_pets.pt')
+        gpt4_sentences = torch.load(f'./gpt4_data/{self.config.name}.pt')
         #print('gpt4 sentences ', gpt4_sentences)
 
         attr = []
@@ -246,6 +249,8 @@ class Blip2Qformer(nn.Module):
         return normalized_tensor
 
     def forward(self, image, text_tokens):
+        cnt = self.class_num
+        cap_cnt = self.caption_num
         attr=self.get_attr2(self.classname)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image=image.to(device)
@@ -289,9 +294,9 @@ class Blip2Qformer(nn.Module):
             key_value_tensor,  # (32, 8, 256)
             key_value_tensor  # (32, 8, 256)
         )
-        attn_output = attn_output.permute(1, 0, 2).view(batch_size, 19, 7, 256)
+        attn_output = attn_output.permute(1, 0, 2).view(batch_size, cnt, cap_cnt, 256)
         #reshaped_tensor = attn_output.reshape(-1, 256)
-        attn_outputs = torch.rand(batch_size,19, 7, 256).to(image_feats.device)
+        attn_outputs = torch.rand(batch_size,cnt, cap_cnt, 256).to(image_feats.device)
         for i in range(attn_output.size(0)):
             attn_outputs[i] = self.adapter(attn_output[i])
         #img_feats = self.adapter(reshaped_tensor)
@@ -320,14 +325,14 @@ class Blip2Qformer(nn.Module):
         # sim_i2t = sim_i2t / self.temp
 
         # 初始化相似度结果张量
-        similarity_results = torch.zeros(batch_size, 19).to(image_feats.device)  # 形状 (8, 19)
+        similarity_results = torch.zeros(batch_size, cnt).to(image_feats.device)  # 形状 (8, 19)
 
         # 计算相似度
         for i in range(batch_size):  # 循环 8 次
             # 对 tensor_a 的每个 19 维度的向量与 tensor_b 进行点积
-            for j in range(19):  # 循环 19 次
+            for j in range(cnt):  # 循环 19 次
                 # 计算相似度 (点积)
-                similarity_results[i, j] = torch.dot(img_feat[i, j], text_feat[j]) /16
+                similarity_results[i, j] = torch.dot(img_feat[i, j], text_feat[j]) / 8
         #similarity_results2 = self.min_max_normalize(similarity_results)
         sim_i2t = similarity_results / self.temp
 
@@ -453,6 +458,8 @@ class Blip2Qformer(nn.Module):
 
     @torch.no_grad()
     def evaluate(self, image, text_tokens):
+        cnt = self.class_num
+        cap_cnt = self.caption_num
         attr = self.get_attr2(self.classname)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image = image.to(device)
@@ -496,9 +503,9 @@ class Blip2Qformer(nn.Module):
             key_value_tensor,  # (32, 8, 256)
             key_value_tensor  # (32, 8, 256)
         )
-        attn_output = attn_output.permute(1, 0, 2).view(batch_size, 19, 7, 256)
+        attn_output = attn_output.permute(1, 0, 2).view(batch_size, cnt, cap_cnt, 256)
         # reshaped_tensor = attn_output.reshape(-1, 256)
-        attn_outputs = torch.rand(batch_size, 19, 7, 256).to(image_feats.device)
+        attn_outputs = torch.rand(batch_size, cnt, cap_cnt, 256).to(image_feats.device)
         for i in range(attn_output.size(0)):
             attn_outputs[i] = self.adapter(attn_output[i])
         # img_feats = self.adapter(reshaped_tensor)
@@ -526,12 +533,12 @@ class Blip2Qformer(nn.Module):
         # sim_i2t = sim_i2t / self.temp
 
         # 初始化相似度结果张量
-        similarity_results = torch.zeros(batch_size, 19).to(image_feats.device)  # 形状 (8, 19)
+        similarity_results = torch.zeros(batch_size, cnt).to(image_feats.device)  # 形状 (8, 19)
 
         # 计算相似度
         for i in range(batch_size):  # 循环 8 次
             # 对 tensor_a 的每个 19 维度的向量与 tensor_b 进行点积
-            for j in range(19):  # 循环 19 次
+            for j in range(cnt):  # 循环 19 次
                 # 计算相似度 (点积)
                 similarity_results[i, j] = torch.dot(img_feat[i, j], text_feat[j]) / 8
         # similarity_results2 = self.min_max_normalize(similarity_results)
