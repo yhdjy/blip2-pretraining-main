@@ -14,7 +14,7 @@ class TrainBlip2:
     def __init__(self):
         blip2_qformer_config = Blip2QformerConfig().__dict__
         image_processor_config = ImageProcessorConfig().__dict__
-        self.config = food101_config()
+        self.config = oxford_pets_config()
         token = torch.rand(35, 7, 32)
         classname = self.get_classname()
         self.blip2model = Blip2Qformer(config=self.config, classname=classname, **blip2_qformer_config).to(self.config.device)  # 加载blip2
@@ -24,8 +24,8 @@ class TrainBlip2:
         for name, param in self.blip2model.named_parameters():
             print(f"Parameter Name: {name}, Shape: {param.shape}")
 
-        # pretrained_data = torch.load("output/model/blip2_pretrained.pth", map_location=self.config.device)
-        # self.blip2model.load_state_dict(pretrained_data["model"], strict=False)
+        pretrained_data = torch.load("output/model/blip2_pretrained_960.pth", map_location=self.config.device)
+        self.blip2model.load_state_dict(pretrained_data["model"], strict=False)
         # 冻结模型的所有参数
         for param in self.blip2model.parameters():
             param.requires_grad = False
@@ -52,7 +52,7 @@ class TrainBlip2:
         self.model_opt = Adam(self.blip2model.parameters(), lr=self.config.lr)  # 设置优化器
 
     def train_blip2(self):
-        #self.evaluate()
+        self.evaluate()
         for epochs in range(self.config.epochs):
 
             for i, data in enumerate(self.dataloader):
@@ -147,6 +147,26 @@ class TrainBlip2:
             'japanese_chin',
             'keeshond'
         ]
+        classname1_n = [
+            'leonberger',
+            'maine_coon',
+            'miniature_pinscher',
+            'newfoundland',
+            'persian',
+            'pomeranian',
+            'pug',
+            'ragdoll',
+            'russian_blue',
+            'saint_bernard',
+            'samoyed',
+            'scottish_terrier',
+            'shiba_inu',
+            'siamese',
+            'sphynx',
+            'staffordshire_bull_terrier',
+            'wheaten_terrier',
+            'yorkshire_terrier',
+        ]
         classname2 = [
             'apple_pie',
             'baby_back_ribs',
@@ -202,7 +222,10 @@ class TrainBlip2:
 
         ]
         if self.config.name == 'oxford_pets':
-            return classname1
+            if not self.config.new_class:
+                return classname1
+            else:
+                return classname1_n
         if self.config.name == 'food-101':
             return classname2
 
