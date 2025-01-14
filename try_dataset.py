@@ -24,8 +24,8 @@ class TrainBlip2:
         for name, param in self.blip2model.named_parameters():
             print(f"Parameter Name: {name}, Shape: {param.shape}")
 
-        pretrained_data = torch.load("output/model/blip2_pretrained.pth", map_location=self.config.device)
-        self.blip2model.load_state_dict(pretrained_data["model"], strict=False)
+        # pretrained_data = torch.load("output/model2/blip2_pretrained_5.pth", map_location=self.config.device)
+        # self.blip2model.load_state_dict(pretrained_data["model"], strict=False)
         # 冻结模型的所有参数
         for param in self.blip2model.parameters():
             param.requires_grad = False
@@ -68,12 +68,13 @@ class TrainBlip2:
                     print(f"  Batch [{i + 1}/{len(self.dataloader)}]: Loss = {loss.loss.item():.4f}")
                 # self.save_model()
             print(f"epoch:{epochs}")
-            self.evaluate()
+
 
             # 是否保存模型
-            self.save_model()
+            #self.save_model(epochs)
+            self.evaluate()
 
-    def save_model(self):
+    def save_model(self,epoch):
         blip2_pretrained = self.blip2model.state_dict()
         # 移除视觉编码器部分的权重
         blip2_pretrained = {k: v for k, v in blip2_pretrained.items() if not k.startswith("visual_encoder")}

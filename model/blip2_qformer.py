@@ -65,7 +65,58 @@ class Blip2Qformer(nn.Module):
         #self.adapter = OfficialSelfAttentionLayer(embed_dim, 4)
         # todo 获取标签描述文本嵌入
         self.classname = classname
-        #self.attr = self.get_attr(classname)
+        #self.attr = self.get_attr2(classname)
+
+        # gpt4_sentences = torch.load(f'./gpt4_data/{self.config.name}.pt')
+        # # print('gpt4 sentences ', gpt4_sentences)
+        #
+        # self.attr2 = []
+        # self.current_sentences = [None] * 100
+        # self.tokenized_sentences = [None] * 100
+        # self.current_input_ids = [None] * 100
+        # self.current_attention_mask = [None] * 100
+        # self.text_output = [None] * 100
+        # self.text_feat = [None] * 100
+        # i=0
+        # # 获取所有类别名称的文本特征
+        # for cl in classname:
+        #     # 处理不同数据集的类别名称
+        #     if self.config.name in ['OxfordFlowers', 'StanfordCars', 'EuroSAT']:
+        #         pass
+        #     else:
+        #         cl = '_'.join(cl.split(' '))
+        #
+        #     self.current_sentences[i] = gpt4_sentences[cl.lower()]
+        #     self.tokenized_sentences[i] = [self.tokenizer(
+        #         c,
+        #         padding="max_length",
+        #         truncation=True,
+        #         max_length=self.config.max_txt_len,
+        #         return_tensors="pt",
+        #     ) for c in self.current_sentences[i]]
+        #
+        #     # 将输入 ID 和注意力掩码移动到正确的设备
+        #     self.current_input_ids[i] = [token["input_ids"].to(self.config.device) for token in self.tokenized_sentences[i]]
+        #     self.current_attention_mask[i] = [token["attention_mask"].to(self.config.device) for token in self.tokenized_sentences[i]]
+        #     self.Qformer = self.Qformer.to(self.config.device)
+        #     # 合并张量并确保它们在同一设备上
+        #     self.text_output[i] = self.Qformer.bert(
+        #         torch.cat(self.current_input_ids[i], dim=0).to(self.config.device),  # 确保在正确的设备上
+        #         attention_mask=torch.cat(self.current_attention_mask[i], dim=0).to(self.config.device),  # 确保在正确的设备上
+        #         return_dict=True,
+        #     )
+        #     self.text_proj = self.text_proj.to(self.config.device)
+        #     self.text_feat[i] = F.normalize(
+        #         self.text_proj(self.text_output[i].last_hidden_state[:, 0, :]), dim=-1
+        #     )
+        #
+        #     # 将 text_feat 移动到正确的设备
+        #     self.attr2.append(self.text_feat[i].unsqueeze(0).to(self.config.device))
+        #     i = i+1
+        #
+        # # 最终合并特征并确保在同一设备上
+        # self.final_text_feats = torch.cat(self.attr2, dim=0)
+        # self.attr = self.final_text_feats
 
     def init_vision_encoder(self, img_size, drop_path_rate):
         # 此处加载的是eva_clip_g模型， 加载需要改一下
@@ -162,7 +213,7 @@ class Blip2Qformer(nn.Module):
     #     return final_text_feats
 
     def get_attr2(self, classnames):
-        gpt4_sentences = torch.load(f'./gpt4_data/oxford_pets.pt')
+        gpt4_sentences = torch.load(f'./gpt4_data/{self.config.name}.pt')
         #print('gpt4 sentences ', gpt4_sentences)
 
         attr = []
@@ -186,14 +237,14 @@ class Blip2Qformer(nn.Module):
             # 将输入 ID 和注意力掩码移动到正确的设备
             current_input_ids = [token["input_ids"].to(self.config.device) for token in tokenized_sentences]
             current_attention_masks = [token["attention_mask"].to(self.config.device) for token in tokenized_sentences]
-
+            self.Qformer = self.Qformer.to(self.config.device)
             # 合并张量并确保它们在同一设备上
             text_output = self.Qformer.bert(
                 torch.cat(current_input_ids, dim=0).to(self.config.device),  # 确保在正确的设备上
                 attention_mask=torch.cat(current_attention_masks, dim=0).to(self.config.device),  # 确保在正确的设备上
                 return_dict=True,
             )
-
+            self.text_proj = self.text_proj.to(self.config.device)
             text_feat = F.normalize(
                 self.text_proj(text_output.last_hidden_state[:, 0, :]), dim=-1
             )
@@ -239,6 +290,7 @@ class Blip2Qformer(nn.Module):
 
     def forward(self, image, text_tokens):
         attr=self.get_attr2(self.classname)
+        #attr = self.attr
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image=image.to(device)
         text_tokens=text_tokens.to(device)
@@ -414,6 +466,7 @@ class Blip2Qformer(nn.Module):
     @torch.no_grad()
     def evaluate(self, image, text_tokens):
         attr = self.get_attr2(self.classname)
+        #attr = self.attr
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image = image.to(device)
         text_tokens = text_tokens.to(device)
