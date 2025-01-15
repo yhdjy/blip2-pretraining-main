@@ -71,7 +71,7 @@ class TrainBlip2:
 
 
             # 是否保存模型
-            #self.save_model(epochs)
+        self.save_model(epochs)
         self.evaluate()
 
     def save_model(self,epoch):

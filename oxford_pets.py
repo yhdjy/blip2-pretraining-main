@@ -63,7 +63,7 @@ class CustomDataset_eva(Dataset):
         self.config = config
         with open(self.config.train_data_path, "r", encoding="utf-8") as f:
             #self.data = json.load(f)['train']  # 提取 "train" 数据
-            all_data = json.load(f)['val']  # 提取 "train" 数据
+            all_data = json.load(f)['test']  # 提取 "train" 数据
             if not self.config.new_class:
                 self.data = [one for one in all_data if one[1] < config.class_num_base]  # 过滤标签大于 19 的项
             else:
