@@ -1,3 +1,7 @@
+import random
+
+import numpy as np
+
 from model import Blip2Qformer
 from transformers import BlipImageProcessor
 from torch.utils.data import DataLoader
@@ -12,6 +16,8 @@ from config import oxford_pets_config,food101_config
 #from peft import get_peft_model, LoraConfig
 class TrainBlip2:
     def __init__(self):
+        # 设置随机种子
+        self.set_seed(42)
         blip2_qformer_config = Blip2QformerConfig().__dict__
         image_processor_config = ImageProcessorConfig().__dict__
         self.config = oxford_pets_config()
@@ -24,7 +30,7 @@ class TrainBlip2:
         for name, param in self.blip2model.named_parameters():
             print(f"Parameter Name: {name}, Shape: {param.shape}")
 
-        # pretrained_data = torch.load("output/model2/blip2_pretrained_5.pth", map_location=self.config.device)
+        # pretrained_data = torch.load("output/model/blip2_pretrained.pth", map_location=self.config.device)
         # self.blip2model.load_state_dict(pretrained_data["model"], strict=False)
         # 冻结模型的所有参数
         for param in self.blip2model.parameters():
@@ -71,7 +77,7 @@ class TrainBlip2:
 
 
             # 是否保存模型
-            #self.save_model(epochs)
+        self.save_model(epochs)
         self.evaluate()
 
     def save_model(self,epoch):
@@ -116,7 +122,7 @@ class TrainBlip2:
         dataset = CustomDataset_eva(self.config, self.processor, self.blip2model.tokenizer)  # 读取数据
 
         #self.attr = self.blip2model.get_attr(classnames=classname)
-        dataloader = DataLoader(dataset, batch_size=self.config.batch_size, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=self.config.batch_size*8, shuffle=True)
         correct_predictions = 0
         total_predictions = 0
         for i, data in enumerate(dataloader):
@@ -231,6 +237,15 @@ class TrainBlip2:
             return classname2
 
         return classname1
+
+    def set_seed(self, seed):
+        random.seed(seed)  # Python 原生随机数生成器
+        np.random.seed(seed)  # NumPy 随机数生成器
+        torch.manual_seed(seed)  # CPU 随机数生成器
+        torch.cuda.manual_seed(seed)  # GPU 随机数生成器
+        torch.backends.cudnn.deterministic = True  # 确保可重复性
+        torch.backends.cudnn.benchmark = False  # 关闭基准模式
+
 
 
 if __name__ == '__main__':
