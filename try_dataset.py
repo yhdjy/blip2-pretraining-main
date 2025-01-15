@@ -17,7 +17,7 @@ from config import oxford_pets_config,food101_config
 class TrainBlip2:
     def __init__(self):
         # 设置随机种子
-        self.set_seed(42)
+        #self.set_seed(1)
         blip2_qformer_config = Blip2QformerConfig().__dict__
         image_processor_config = ImageProcessorConfig().__dict__
         self.config = oxford_pets_config()
@@ -122,7 +122,7 @@ class TrainBlip2:
         dataset = CustomDataset_eva(self.config, self.processor, self.blip2model.tokenizer)  # 读取数据
 
         #self.attr = self.blip2model.get_attr(classnames=classname)
-        dataloader = DataLoader(dataset, batch_size=self.config.batch_size*8, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=self.config.batch_size*16, shuffle=True)
         correct_predictions = 0
         total_predictions = 0
         for i, data in enumerate(dataloader):

@@ -364,13 +364,13 @@ class Blip2Qformer(nn.Module):
         # loss_itc = (F.cross_entropy(sim_i2t, targets, label_smoothing=0.1) + F.cross_entropy(sim_t2i, targets,
         #                                                                                      label_smoothing=0.1)) / 2
         # 判断 sim_i2t 是否是二维的
-        if sim_i2t.dim() == 1:  # 检查维度
-            # 如果是 1D 张量，使用 unsqueeze 扩展为 [1, 19]
-            sim_i2t_expanded = sim_i2t.unsqueeze(0)
-        else:
-            # 如果是二维张量，直接保留原始张量
-            sim_i2t_expanded = sim_i2t
-        loss_itc = F.cross_entropy(sim_i2t_expanded, targets)#, label_smoothing=0.1)
+        # if sim_i2t.dim() == 1:  # 检查维度
+        #     # 如果是 1D 张量，使用 unsqueeze 扩展为 [1, 19]
+        #     sim_i2t_expanded = sim_i2t.unsqueeze(0)
+        # else:
+        #     # 如果是二维张量，直接保留原始张量
+        #     sim_i2t_expanded = sim_i2t
+        loss_itc = F.cross_entropy(sim_i2t, targets)#, label_smoothing=0.1)
         return BlipOutput(
             loss=loss_itc.float() if isinstance(loss_itc, torch.Tensor) else None,
         )

@@ -17,7 +17,7 @@ class Config:
 
 class oxford_pets_config:
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
-    batch_size: int = 1
+    batch_size: int = 2
     max_txt_len: int = 32
     epochs: int = 10
     lr: float = 0.0005
