@@ -310,6 +310,9 @@ class Blip2Qformer(nn.Module):
         #attr = attr.to(image_feats.device)
         text_features = self.adapter(attr)  # adapter前后都是[19,7,512]
         text_feat = text_features.mean(dim=1)  # [19,512]
+
+        img_feat = img_feat / img_feat.norm(dim=-1, keepdim=True) #[1,512]
+        text_feat = text_feat / text_feat.norm(dim=-1, keepdim=True) #[19,512]
         # 下面的loss 计算可以看博客https://zhuanlan.zhihu.com/p/16034558568
         ###============== Image-text Contrastive ===================###
         # image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
