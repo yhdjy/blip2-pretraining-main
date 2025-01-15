@@ -17,7 +17,7 @@ class Config:
 
 class oxford_pets_config:
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
-    batch_size: int = 2
+    batch_size: int = 4
     max_txt_len: int = 32
     epochs: int = 10
     lr: float = 0.0005
@@ -28,7 +28,7 @@ class oxford_pets_config:
     class_num: int = 19  # 基类19，新类18
     class_num_base: int = 19
     caption_num: int = 7
-    new_class: bool = False
+    new_class: bool = True
 
 
 class food101_config:

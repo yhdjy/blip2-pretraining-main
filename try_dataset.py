@@ -77,8 +77,13 @@ class TrainBlip2:
 
 
             # 是否保存模型
+<<<<<<< HEAD
         self.save_model(epochs)
         self.evaluate()
+=======
+            #self.save_model(epochs)
+            self.evaluate()
+>>>>>>> parent of 381f56b (增加归一化)
 
     def save_model(self,epoch):
         blip2_pretrained = self.blip2model.state_dict()

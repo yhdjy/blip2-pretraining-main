@@ -235,16 +235,16 @@ class Blip2Qformer(nn.Module):
             ) for c in current_sentences]
 
             # 将输入 ID 和注意力掩码移动到正确的设备
-            current_input_ids = [token["input_ids"] for token in tokenized_sentences]
-            current_attention_masks = [token["attention_mask"] for token in tokenized_sentences]
-            self.Qformer = self.Qformer
+            current_input_ids = [token["input_ids"].to(self.config.device) for token in tokenized_sentences]
+            current_attention_masks = [token["attention_mask"].to(self.config.device) for token in tokenized_sentences]
+            self.Qformer = self.Qformer.to(self.config.device)
             # 合并张量并确保它们在同一设备上
             text_output = self.Qformer.bert(
                 torch.cat(current_input_ids, dim=0).to(self.config.device),  # 确保在正确的设备上
                 attention_mask=torch.cat(current_attention_masks, dim=0).to(self.config.device),  # 确保在正确的设备上
                 return_dict=True,
             )
-            self.text_proj = self.text_proj
+            self.text_proj = self.text_proj.to(self.config.device)
             text_feat = F.normalize(
                 self.text_proj(text_output.last_hidden_state[:, 0, :]), dim=-1
             )
@@ -333,8 +333,7 @@ class Blip2Qformer(nn.Module):
         ###============== Image-text Contrastive ===================###
         image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
         text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
-        image_feats_all = image_feats_all / image_feats_all.norm(dim=-1, keepdim=True) #[1,512]
-        text_feat_all = text_feat_all / text_feat_all.norm(dim=-1, keepdim=True) #[19,512]
+
         sim_q2t = torch.matmul(
             image_feats.unsqueeze(1), text_feat_all.unsqueeze(-1)
         ).squeeze()
@@ -474,7 +473,7 @@ class Blip2Qformer(nn.Module):
     @torch.no_grad()
     def evaluate(self, image, text_tokens):
         attr = self.get_attr2(self.classname)
-        # attr = self.attr
+        #attr = self.attr
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image = image.to(device)
         text_tokens = text_tokens.to(device)
@@ -517,8 +516,6 @@ class Blip2Qformer(nn.Module):
         ###============== Image-text Contrastive ===================###
         image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
         text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
-        image_feats_all = image_feats_all / image_feats_all.norm(dim=-1, keepdim=True)  # [1,512]
-        text_feat_all = text_feat_all / text_feat_all.norm(dim=-1, keepdim=True)  # [19,512]
 
         sim_q2t = torch.matmul(
             image_feats.unsqueeze(1), text_feat_all.unsqueeze(-1)
