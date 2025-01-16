@@ -33,6 +33,7 @@ class Blip2Qformer(nn.Module):
             classname=None,
     ):
         super().__init__()
+
         self.config = config
         self.tokenizer = self.init_tokenizer(bert_base_uncased_path)
         self.visual_encoder = self.init_vision_encoder(img_size, drop_path_rate)
@@ -65,6 +66,8 @@ class Blip2Qformer(nn.Module):
         #self.adapter = OfficialSelfAttentionLayer(embed_dim, 4)
         # todo 获取标签描述文本嵌入
         self.classname = classname
+
+        #self.attr = torch.load("attr.pt")
         #self.attr = self.get_attr2(classname)
 
         # gpt4_sentences = torch.load(f'./gpt4_data/{self.config.name}.pt')
@@ -289,8 +292,8 @@ class Blip2Qformer(nn.Module):
 
 
     def forward(self, image, text_tokens):
-        attr=self.get_attr2(self.classname)
-        #attr = self.attr
+        #attr=self.get_attr2(self.classname)
+        attr = self.attr
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image=image.to(device)
         text_tokens=text_tokens.to(device)
@@ -466,8 +469,8 @@ class Blip2Qformer(nn.Module):
 
     @torch.no_grad()
     def evaluate(self, image, text_tokens):
-        attr = self.get_attr2(self.classname)
-        # attr = self.attr
+        #attr = self.get_attr2(self.classname)
+        attr = self.attr
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image = image.to(device)
         text_tokens = text_tokens.to(device)

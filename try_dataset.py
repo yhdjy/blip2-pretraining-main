@@ -19,7 +19,8 @@ class TrainBlip2:
         classname = self.get_classname()
         self.blip2model = Blip2Qformer(config=self.config, classname=classname, **blip2_qformer_config).to(self.config.device)  # 加载blip2
         #self.blip2model.attr = self.blip2model.get_attr2(classname)
-
+        torch.save(self.blip2model.get_attr2(classname), "attrs.pt")
+        self.blip2model.attr = torch.load("attrs.pt")
         # 打印所有参数名和对应的形状
         for name, param in self.blip2model.named_parameters():
             print(f"Parameter Name: {name}, Shape: {param.shape}")
@@ -57,14 +58,14 @@ class TrainBlip2:
 
             for i, data in enumerate(self.dataloader):
                 loss = self.blip2model(data[0], data[1])
-                if (i + 1) % 4 == 0:
+                if (i + 1) % 10 == 0:
                     self.blip2model.evaluate(data[0], data[1])
                 self.blip2model.zero_grad()
                 loss.loss.backward()
                 self.model_opt.step()
-                if (i + 1) % 4 == 0:
+                if (i + 1) % 10 == 0:
                     print(loss)
-                if (i + 1) % 4 == 0:  # 每 10 个 batch 打印一次
+                if (i + 1) % 10 == 0:  # 每 10 个 batch 打印一次
                     print(f"  Batch [{i + 1}/{len(self.dataloader)}]: Loss = {loss.loss.item():.4f}")
                 # self.save_model()
             print(f"epoch:{epochs}")
@@ -116,7 +117,7 @@ class TrainBlip2:
         dataset = CustomDataset_eva(self.config, self.processor, self.blip2model.tokenizer)  # 读取数据
 
         #self.attr = self.blip2model.get_attr(classnames=classname)
-        dataloader = DataLoader(dataset, batch_size=self.config.batch_size, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=self.config.batch_size*32, shuffle=True)
         correct_predictions = 0
         total_predictions = 0
         for i, data in enumerate(dataloader):
@@ -124,6 +125,9 @@ class TrainBlip2:
             a,b = self.blip2model.evaluate(data[0], data[1])
             correct_predictions+=a
             total_predictions+=b
+            # 计算并打印进度百分比
+            progress = (i + 1) / len(dataloader) * 100  # 计算进度
+            print(f'Progress: {progress:.2f}% ({i + 1}/{len(dataloader)})')  # 打印进度
         print(correct_predictions/total_predictions)
 
     def get_classname(self):

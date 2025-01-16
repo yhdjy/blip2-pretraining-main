@@ -35,8 +35,8 @@ class food101_config:
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
     batch_size: int = 2
     max_txt_len: int = 32
-    epochs: int = 5
-    lr: float = 0.0003
+    epochs: int = 4
+    lr: float = 0.0005
     train_data_path: str = "DATA/food-101/split_zhou_Food101.json"
     images_path: str = "DATA/food-101/images"
     save_model_path: str = "output/model2"  # 保存blip2模型地址
