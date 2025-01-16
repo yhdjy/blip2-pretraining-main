@@ -14,7 +14,7 @@ class TrainBlip2:
     def __init__(self):
         blip2_qformer_config = Blip2QformerConfig().__dict__
         image_processor_config = ImageProcessorConfig().__dict__
-        self.config = oxford_pets_config()
+        self.config = food101_config()
         token = torch.rand(35, 7, 32)
         classname = self.get_classname()
         self.blip2model = Blip2Qformer(config=self.config, classname=classname, **blip2_qformer_config).to(self.config.device)  # 加载blip2
@@ -25,7 +25,7 @@ class TrainBlip2:
         for name, param in self.blip2model.named_parameters():
             print(f"Parameter Name: {name}, Shape: {param.shape}")
 
-        # pretrained_data = torch.load("output/model2/blip2_pretrained_5.pth", map_location=self.config.device)
+        # pretrained_data = torch.load(f"{self.config.save_model_path}/blip2_pretrained.pth", map_location=self.config.device)
         # self.blip2model.load_state_dict(pretrained_data["model"], strict=False)
         # 冻结模型的所有参数
         for param in self.blip2model.parameters():

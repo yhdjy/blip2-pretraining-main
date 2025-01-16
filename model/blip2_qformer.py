@@ -66,7 +66,8 @@ class Blip2Qformer(nn.Module):
         #self.adapter = OfficialSelfAttentionLayer(embed_dim, 4)
         # todo 获取标签描述文本嵌入
         self.classname = classname
-
+        self.cross_attn = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=8)
+        self.queries = nn.Parameter(torch.randn(self.config.caption_num, embed_dim))
         #self.attr = torch.load("attr.pt")
         #self.attr = self.get_attr2(classname)
 
