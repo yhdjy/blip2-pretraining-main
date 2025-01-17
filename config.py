@@ -20,7 +20,7 @@ class oxford_pets_config:
     batch_size: int = 2
     max_txt_len: int = 32
     epochs: int = 10
-    lr: float = 0.001
+    lr: float = 0.0005
     train_data_path: str = "DATA/oxford_pets/split_zhou_OxfordPets.json"
     images_path: str = "DATA/oxford_pets/images"
     save_model_path: str = "output/model"  # 保存blip2模型地址

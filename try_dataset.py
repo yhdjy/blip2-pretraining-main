@@ -14,7 +14,7 @@ class TrainBlip2:
     def __init__(self):
         blip2_qformer_config = Blip2QformerConfig().__dict__
         image_processor_config = ImageProcessorConfig().__dict__
-        self.config = food101_config()
+        self.config = oxford_pets_config()
         token = torch.rand(35, 7, 32)
         classname = self.get_classname()
         self.blip2model = Blip2Qformer(config=self.config, classname=classname, **blip2_qformer_config).to(self.config.device)  # 加载blip2
@@ -58,17 +58,19 @@ class TrainBlip2:
 
             for i, data in enumerate(self.dataloader):
                 loss = self.blip2model(data[0], data[1])
-                if (i + 1) % 10 == 0:
+                if (i + 1) % 20 == 0:
                     self.blip2model.evaluate(data[0], data[1])
                 self.blip2model.zero_grad()
                 loss.loss.backward()
                 self.model_opt.step()
-                if (i + 1) % 10 == 0:
+                if (i + 1) % 20 == 0:
                     print(loss)
-                if (i + 1) % 10 == 0:  # 每 10 个 batch 打印一次
+                if (i + 1) % 20 == 0:  # 每 10 个 batch 打印一次
                     print(f"  Batch [{i + 1}/{len(self.dataloader)}]: Loss = {loss.loss.item():.4f}")
                 # self.save_model()
             print(f"epoch:{epochs}")
+
+        self.evaluate()
 
 
             # 是否保存模型
@@ -128,6 +130,7 @@ class TrainBlip2:
             # 计算并打印进度百分比
             progress = (i + 1) / len(dataloader) * 100  # 计算进度
             print(f'Progress: {progress:.2f}% ({i + 1}/{len(dataloader)})')  # 打印进度
+            print(f'total_acc: {correct_predictions*100/total_predictions:.4f}% ')  # 打印进度
         print(correct_predictions/total_predictions)
 
     def get_classname(self):

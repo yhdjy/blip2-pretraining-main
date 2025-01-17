@@ -63,6 +63,7 @@ class Blip2Qformer(nn.Module):
         self.load_model_weights(visual_encoder_model_path, qformer_model_path)
 
         self.adapter = SelfAttnAdapter(embed_dim, 4, ratio=0.5).to(self.config.device)
+        self.adapter2 = SelfAttnAdapter(embed_dim, 4, ratio=0.5).to(self.config.device)
         #self.adapter = OfficialSelfAttentionLayer(embed_dim, 4)
         # todo 获取标签描述文本嵌入
         self.classname = classname
@@ -317,7 +318,16 @@ class Blip2Qformer(nn.Module):
         image_feats = F.normalize(
             self.vision_proj(query_output.last_hidden_state), dim=-1
         )
+        # 注意力计算需要将输入转换为 (seq_len, batch_size, embed_dim) 的形状
+        image_features_transposed = image_feats.transpose(0, 1)  # 形状为 (30, batch_size, 256)
+        queries_transposed = self.queries.unsqueeze(1).expand(-1, image_features_transposed.size(1), -1)  # 形状为 (n, 1, 256)
 
+        # 计算交叉注意力
+        attn_output, attn_weights = self.cross_attn(queries_transposed, image_features_transposed,
+                                                    image_features_transposed)
+        attn_output = attn_output.transpose(0, 1)
+        attn_outputs = self.adapter(attn_output)
+        attn_outputs = attn_outputs.mean(dim=1)
         # 获得文本encode
         # text_output = self.Qformer.bert(
         #     text_tokens.input_ids,
@@ -335,27 +345,20 @@ class Blip2Qformer(nn.Module):
         text_feat = text_features.mean(dim=1)  # [19,512]
         # 下面的loss 计算可以看博客https://zhuanlan.zhihu.com/p/16034558568
         ###============== Image-text Contrastive ===================###
-        image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
+        image_feats_all = attn_outputs  # [batch_size*num_gpu, num_query_tokens, embed_dim]
         text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
         image_feats_all = image_feats_all / image_feats_all.norm(dim=-1, keepdim=True) #[1,512]
         text_feat_all = text_feat_all / text_feat_all.norm(dim=-1, keepdim=True) #[19,512]
         sim_q2t = torch.matmul(
-            image_feats.unsqueeze(1), text_feat_all.unsqueeze(-1)
-        ).squeeze()
+            image_feats_all, text_feat_all.t()
+        )
         # [batch_size, batch_size*num_gpu, num_query_tokens]
 
         # image-text similarity: aggregate across all query tokens
-        sim_i2t, _ = sim_q2t.max(-1)
+        sim_i2t = sim_q2t
         sim_i2t = sim_i2t / self.temp
 
-        # text-query similarity: [batch_size, batch_size*num_gpu, num_query_tokens]
-        sim_t2q = torch.matmul(
-            text_feat.unsqueeze(1).unsqueeze(1), image_feats_all.permute(0, 2, 1)
-        ).squeeze()
 
-        # text-image similarity: aggregate across all query tokens
-        sim_t2i, _ = sim_t2q.max(-1)
-        sim_t2i = sim_t2i / self.temp  # [batch_size, batch_size*num_gpu]
 
         # rank = dist.get_rank()
         rank = 0
@@ -470,7 +473,7 @@ class Blip2Qformer(nn.Module):
 
     @torch.no_grad()
     def evaluate(self, image, text_tokens):
-        #attr = self.get_attr2(self.classname)
+        # attr=self.get_attr2(self.classname)
         attr = self.attr
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image = image.to(device)
@@ -494,7 +497,16 @@ class Blip2Qformer(nn.Module):
         image_feats = F.normalize(
             self.vision_proj(query_output.last_hidden_state), dim=-1
         )
+        # 注意力计算需要将输入转换为 (seq_len, batch_size, embed_dim) 的形状
+        image_features_transposed = image_feats.transpose(0, 1)  # 形状为 (30, batch_size, 256)
+        queries_transposed = self.queries.unsqueeze(1).expand(-1, image_features_transposed.size(1), -1)  # 形状为 (n, 1, 256)
 
+        # 计算交叉注意力
+        attn_output, attn_weights = self.cross_attn(queries_transposed, image_features_transposed,
+                                                    image_features_transposed)
+        attn_output = attn_output.transpose(0, 1)
+        attn_outputs = self.adapter(attn_output)
+        attn_outputs = attn_outputs.mean(dim=1)
         # 获得文本encode
         # text_output = self.Qformer.bert(
         #     text_tokens.input_ids,
@@ -512,28 +524,18 @@ class Blip2Qformer(nn.Module):
         text_feat = text_features.mean(dim=1)  # [19,512]
         # 下面的loss 计算可以看博客https://zhuanlan.zhihu.com/p/16034558568
         ###============== Image-text Contrastive ===================###
-        image_feats_all = image_feats  # [batch_size*num_gpu, num_query_tokens, embed_dim]
+        image_feats_all = attn_outputs  # [batch_size*num_gpu, num_query_tokens, embed_dim]
         text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
         image_feats_all = image_feats_all / image_feats_all.norm(dim=-1, keepdim=True)  # [1,512]
         text_feat_all = text_feat_all / text_feat_all.norm(dim=-1, keepdim=True)  # [19,512]
-
         sim_q2t = torch.matmul(
-            image_feats.unsqueeze(1), text_feat_all.unsqueeze(-1)
-        ).squeeze()
+            image_feats_all, text_feat_all.t()
+        )
         # [batch_size, batch_size*num_gpu, num_query_tokens]
 
         # image-text similarity: aggregate across all query tokens
-        sim_i2t, _ = sim_q2t.max(-1)
+        sim_i2t = sim_q2t
         sim_i2t = sim_i2t / self.temp
-
-        # text-query similarity: [batch_size, batch_size*num_gpu, num_query_tokens]
-        sim_t2q = torch.matmul(
-            text_feat.unsqueeze(1).unsqueeze(1), image_feats_all.permute(0, 2, 1)
-        ).squeeze()
-
-        # text-image similarity: aggregate across all query tokens
-        sim_t2i, _ = sim_t2q.max(-1)
-        sim_t2i = sim_t2i / self.temp  # [batch_size, batch_size*num_gpu]
 
         # rank = dist.get_rank()
         rank = 0
