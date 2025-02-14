@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@qhdlink.lanyun.net:32432 password" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@link.lanyun.net:29685 password" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="lab419@10.1.124.19:22 password">
         <serverdata>
@@ -135,6 +135,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="root@link.lanyun.net:29685 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_351" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="root@qhdlink.lanyun.net:12100 password">
         <serverdata>
           <mappings>
@@ -265,6 +272,13 @@
         <serverdata>
           <mappings>
             <mapping deploy="/tmp/pycharm_project_551" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="root@qhdlink.lanyun.net:33049 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_273" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

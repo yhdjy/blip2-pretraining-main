@@ -19,7 +19,7 @@ class oxford_pets_config:
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
     batch_size: int = 2
     max_txt_len: int = 32
-    epochs: int = 10
+    epochs: int = 15
     lr: float = 0.0005
     train_data_path: str = "DATA/oxford_pets/split_zhou_OxfordPets.json"
     images_path: str = "DATA/oxford_pets/images"
@@ -27,15 +27,18 @@ class oxford_pets_config:
     name: str = "oxford_pets"
     class_num: int = 19  # 基类19，新类18
     class_num_base: int = 19
-    caption_num: int = 7
+    caption_num: int = 7   # 7
     new_class: bool = False
+    fusion_img: bool = True
+    step_size = 10  # 每 10 个 epoch 下调学习率
+    gamma = 0.1  # 下调学习率的因子
 
 
 class food101_config:
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
     batch_size: int = 2
     max_txt_len: int = 32
-    epochs: int = 10
+    epochs: int = 15
     lr: float = 0.0005
     train_data_path: str = "DATA/food-101/split_zhou_Food101.json"
     images_path: str = "DATA/food-101/images"
@@ -43,8 +46,67 @@ class food101_config:
     name: str = "food-101"
     class_num: int = 51
     class_num_base: int = 51
-    caption_num: int = 16
+    caption_num: int = 8  # 16
     new_class: bool = False
+    fusion_img: bool = True
+    step_size = 10  # 每 10 个 epoch 下调学习率
+    gamma = 0.1  # 下调学习率的因子
+
+
+class dtd_config:
+    device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
+    batch_size: int = 2
+    max_txt_len: int = 32
+    epochs: int = 15
+    lr: float = 0.0005
+    train_data_path: str = "DATA/dtd/split_zhou_DescribableTextures.json"
+    images_path: str = "DATA/dtd/images"
+    save_model_path: str = "output/model3"  # 保存blip2模型地址
+    name: str = "dtd"
+    class_num: int = 24
+    class_num_base: int = 24
+    caption_num: int = 4   # 8
+    new_class: bool = False
+    fusion_img: bool = True
+    step_size = 10  # 每 10 个 epoch 下调学习率
+    gamma = 0.1  # 下调学习率的因子
+
+
+class ucf101_config:
+    device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
+    batch_size: int = 2
+    max_txt_len: int = 32
+    epochs: int = 15
+    lr: float = 0.0005
+    train_data_path: str = "DATA/UCF-101-midframes/split_zhou_UCF101.json"
+    images_path: str = "DATA/UCF-101-midframes"
+    save_model_path: str = "output/model4"  # 保存blip2模型地址
+    name: str = "ucf101"
+    class_num: int = 51
+    class_num_base: int = 51
+    caption_num: int = 17  #17
+    new_class: bool = False
+    fusion_img: bool = True
+    step_size = 10  # 每 10 个 epoch 下调学习率
+    gamma = 0.1  # 下调学习率的因子
+
+class eurosat_config:
+    device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
+    batch_size: int = 2
+    max_txt_len: int = 32
+    epochs: int = 15
+    lr: float = 0.0005
+    train_data_path: str = "DATA/eurosat/split_zhou_EuroSAT.json"
+    images_path: str = "DATA/eurosat/2750"
+    save_model_path: str = "output/model5"  # 保存blip2模型地址
+    name: str = "eurosat"
+    class_num: int = 5
+    class_num_base: int = 5
+    caption_num: int = 6   # 11
+    new_class: bool = False
+    fusion_img: bool = True
+    step_size = 10  # 每 10 个 epoch 下调学习率
+    gamma = 0.1  # 下调学习率的因子
 
 
 @dataclass

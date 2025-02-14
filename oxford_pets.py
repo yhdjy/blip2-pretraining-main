@@ -21,6 +21,7 @@ class CustomDataset(Dataset):
                     categorized_data[label].append(one)
             # 从每个类别中随机选择最多 16 个样本
             self.data = []
+            random.seed(1)
             for label, items in categorized_data.items():
                 # 随机选择最多 16 个样本
                 selected_samples = random.sample(items, min(len(items), 16))

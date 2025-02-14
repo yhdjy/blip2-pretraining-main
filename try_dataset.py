@@ -1,3 +1,5 @@
+from torch.optim.lr_scheduler import StepLR
+
 from model import Blip2Qformer
 from transformers import BlipImageProcessor
 from torch.utils.data import DataLoader
@@ -8,13 +10,14 @@ from torch.optim import Adam
 import torch
 from PIL import Image
 import torch.nn.functional as F
-from config import oxford_pets_config,food101_config
+from config import oxford_pets_config,food101_config,dtd_config,ucf101_config,eurosat_config
 #from peft import get_peft_model, LoraConfig
 class TrainBlip2:
     def __init__(self):
+
         blip2_qformer_config = Blip2QformerConfig().__dict__
         image_processor_config = ImageProcessorConfig().__dict__
-        self.config = oxford_pets_config()
+        self.config = food101_config()
         token = torch.rand(35, 7, 32)
         classname = self.get_classname()
         self.blip2model = Blip2Qformer(config=self.config, classname=classname, **blip2_qformer_config).to(self.config.device)  # 加载blip2
@@ -37,7 +40,7 @@ class TrainBlip2:
             if 'adapter' in name or 'cross_attn' in name or 'batch_norm' in name:# or 'encoder.layer.11' in name:  # 假设适配器的参数名称中包含 'adapter'
                 param.requires_grad = True
         self.processor = BlipImageProcessor(**image_processor_config)  # 加载图像预处理
-
+        self.log_file = "training_log.txt"  # 日志文件名
         # # 定义LoRA配置
         # lora_config = LoraConfig(
         #     r=8,  # 低秩矩阵的秩
@@ -52,8 +55,14 @@ class TrainBlip2:
         self.dataloader = DataLoader(dataset, batch_size=self.config.batch_size, shuffle=True)
         self.model_opt = Adam(self.blip2model.parameters(), lr=self.config.lr)  # 设置优化器
 
+        self.scheduler = StepLR(self.model_opt, step_size=self.config.step_size, gamma=self.config.gamma)  # 学习率调度器
+
+    def log(self, message):
+        with open(self.log_file, "a") as f:  # 以追加模式打开文件
+            f.write(message + "\n")
     def train_blip2(self):
         #self.evaluate()
+
         for epochs in range(self.config.epochs):
 
             for i, data in enumerate(self.dataloader):
@@ -69,13 +78,16 @@ class TrainBlip2:
                     print(f"  Batch [{i + 1}/{len(self.dataloader)}]: Loss = {loss.loss.item():.4f}")
                 # self.save_model()
             print(f"epoch:{epochs}")
-
-        self.evaluate()
-
+            acc = self.evaluate()
+            learning_rate = self.model_opt.param_groups[0]['lr']
+            info = f"epoch:{epochs}, acc:{acc:.4f}, lr: {learning_rate:.6f}  "
+            self.log(info)
+            self.scheduler.step()
 
             # 是否保存模型
         self.save_model(epochs)
-        self.evaluate()
+        acc = self.evaluate()
+
 
     def save_model(self,epoch):
         blip2_pretrained = self.blip2model.state_dict()
@@ -119,7 +131,7 @@ class TrainBlip2:
         dataset = CustomDataset_eva(self.config, self.processor, self.blip2model.tokenizer)  # 读取数据
 
         #self.attr = self.blip2model.get_attr(classnames=classname)
-        dataloader = DataLoader(dataset, batch_size=self.config.batch_size*32, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
         correct_predictions = 0
         total_predictions = 0
         for i, data in enumerate(dataloader):
@@ -132,6 +144,7 @@ class TrainBlip2:
             print(f'Progress: {progress:.2f}% ({i + 1}/{len(dataloader)})')  # 打印进度
             print(f'total_acc: {correct_predictions*100/total_predictions:.4f}% ')  # 打印进度
         print(correct_predictions/total_predictions)
+        return correct_predictions/total_predictions
 
     def get_classname(self):
         classname1 = [
@@ -229,6 +242,95 @@ class TrainBlip2:
             'grilled_salmon',
 
         ]
+        classname3 = [
+            'banded',
+            'blotchy',
+            'braided',
+            'bubbly',
+            'bumpy',
+            'chequered',
+            'cobwebbed',
+            'cracked',
+            'crosshatched',
+            'crystalline',
+            'dotted',
+            'fibrous',
+            'flecked',
+            'freckled',
+            'frilly',
+            'gauzy',
+            'grid',
+            'grooved',
+            'honeycombed',
+            'interlaced',
+            'knitted',
+            'lacelike',
+            'lined',
+            'marbled',
+
+        ]
+        classname4 = [
+            'Apply_Eye_Makeup',
+            'Apply_Lipstick',
+            'Archery',
+            'Baby_Crawling',
+            'Balance_Beam',
+            'Band_Marching',
+            'Baseball_Pitch',
+            'Basketball',
+            'Basketball_Dunk',
+            'Bench_Press',
+            'Biking',
+            'Billiards',
+            'Blow_Dry_Hair',
+            'Blowing_Candles',
+            'Body_Weight_Squats',
+            'Bowling',
+            'Boxing_Punching_Bag',
+            'Boxing_Speed_Bag',
+            'Breast_Stroke',
+            'Brushing_Teeth',
+            'Clean_And_Jerk',
+            'Cliff_Diving',
+            'Cricket_Bowling',
+            'Cricket_Shot',
+            'Cutting_In_Kitchen',
+            'Diving',
+            'Drumming',
+            'Fencing',
+            'Field_Hockey_Penalty',
+            'Floor_Gymnastics',
+            'Frisbee_Catch',
+            'Front_Crawl',
+            'Golf_Swing',
+            'Haircut',
+            'Hammer_Throw',
+            'Hammering',
+            'Handstand_Pushups',
+            'Handstand_Walking',
+            'Head_Massage',
+            'High_Jump',
+            'Horse_Race',
+            'Horse_Riding',
+            'Hula_Hoop',
+            'Ice_Dancing',
+            'Javelin_Throw',
+            'Juggling_Balls',
+            'Jump_Rope',
+            'Jumping_Jack',
+            'Kayaking',
+            'Knitting',
+            'Long_Jump',
+
+        ]
+        classname5 = [
+            'annual crop land',
+            'forest',
+            'herbaceous vegetation land',
+            'highway or road',
+            'industrial buildings',
+
+        ]
         if self.config.name == 'oxford_pets':
             if not self.config.new_class:
                 return classname1
@@ -236,7 +338,12 @@ class TrainBlip2:
                 return classname1_n
         if self.config.name == 'food-101':
             return classname2
-
+        if self.config.name == 'dtd':
+            return classname3
+        if self.config.name == 'ucf101':
+            return classname4
+        if self.config.name == 'eurosat':
+            return classname5
         return classname1
 
 
