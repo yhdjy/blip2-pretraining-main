@@ -295,6 +295,7 @@ class Blip2Qformer(nn.Module):
 
     def forward(self, image, text_tokens):
         # attr=self.get_attr2(self.classname)
+        #得到类描述features，(class_num,caption_num,256)
         attr = self.attr
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         image = image.to(device)
@@ -314,21 +315,24 @@ class Blip2Qformer(nn.Module):
             use_cache=True,
             return_dict=True,
         )
-
+        # 得到blip2输出的图像特征(batch_size,32,256)
         image_feats = F.normalize(
             self.vision_proj(query_output.last_hidden_state), dim=-1
         )
+        # 是否对32个features用交叉注意力融合
         if self.config.fusion_img:
             # 注意力计算需要将输入转换为 (seq_len, batch_size, embed_dim) 的形状
-            image_features_transposed = image_feats.transpose(0, 1)  # 形状为 (30, batch_size, 256)
+            image_features_transposed = image_feats.transpose(0, 1)  # 形状为 (32, batch_size, 256)
             queries_transposed = self.queries.unsqueeze(1).expand(-1, image_features_transposed.size(1),
-                                                                  -1)  # 形状为 (n, 1, 256)
+                                                                  -1)  # 形状为 (n, batch_size, 256)
 
             # 计算交叉注意力
             attn_output, attn_weights = self.cross_attn(queries_transposed, image_features_transposed,
                                                         image_features_transposed)
+            # 形状为 (batch_size, n, 256)
             attn_output = attn_output.transpose(0, 1)
             attn_outputs = self.adapter(attn_output)
+            # 融合，形状为 (batch_size, 256)
             attn_outputs = attn_outputs.mean(dim=1)
         else:
             attn_outputs = image_feats
@@ -345,19 +349,19 @@ class Blip2Qformer(nn.Module):
         # todo 将同一类的不同描述融合 [19,7,256]->[19,256]
         # attr=torch.rand(19,7,256).to(image_feats.device)
         # attr = attr.to(image_feats.device)
-        text_features = self.adapter(attr)  # adapter前后都是[19,7,512]
-        text_feat = text_features.mean(dim=1)  # [19,512]
+        text_features = self.adapter(attr)  # adapter前后都是(class_num,caption_num,256)
+        text_feat = text_features.mean(dim=1)  # (class_num,256)
         # 下面的loss 计算可以看博客https://zhuanlan.zhihu.com/p/16034558568
         ###============== Image-text Contrastive ===================###
         image_feats_all = attn_outputs  # [batch_size*num_gpu, num_query_tokens, embed_dim]
         text_feat_all = text_feat  # [batch_size*num_gpu, embed_dim]
-        image_feats_all = image_feats_all / image_feats_all.norm(dim=-1, keepdim=True)  # [1,512]
-        text_feat_all = text_feat_all / text_feat_all.norm(dim=-1, keepdim=True)  # [19,512]
+        image_feats_all = image_feats_all / image_feats_all.norm(dim=-1, keepdim=True)  # [batch_size,256]
+        text_feat_all = text_feat_all / text_feat_all.norm(dim=-1, keepdim=True)  # [class_num,256]
         if self.config.fusion_img:
+            # 相乘得到相似度矩阵(batch_size, class_num)
             sim_q2t = torch.matmul(
                 image_feats_all, text_feat_all.t()
             )
-            # [batch_size, batch_size*num_gpu, num_query_tokens]
 
             # image-text similarity: aggregate across all query tokens
             sim_i2t = sim_q2t

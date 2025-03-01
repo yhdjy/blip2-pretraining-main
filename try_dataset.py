@@ -17,11 +17,13 @@ class TrainBlip2:
 
         blip2_qformer_config = Blip2QformerConfig().__dict__
         image_processor_config = ImageProcessorConfig().__dict__
-        self.config = food101_config()
-        token = torch.rand(35, 7, 32)
+        # 选择数据集
+        self.config = dtd_config()
+        # 得到选择为基类的类名列表
         classname = self.get_classname()
         self.blip2model = Blip2Qformer(config=self.config, classname=classname, **blip2_qformer_config).to(self.config.device)  # 加载blip2
         #self.blip2model.attr = self.blip2model.get_attr2(classname)
+        # 将类名编码得到对应描述的features
         torch.save(self.blip2model.get_attr2(classname), "attrs.pt")
         self.blip2model.attr = torch.load("attrs.pt")
         # 打印所有参数名和对应的形状
